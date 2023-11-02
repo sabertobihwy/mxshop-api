@@ -1,1 +1,20 @@
-package user_web
+package main
+
+import (
+	"fmt"
+	"go.uber.org/zap"
+	"mxshop-api/user-web/initialize"
+)
+
+func main() {
+	port := 8021
+	// 1.init logger
+	initialize.InitLogger()
+	// 2. init router
+	router := initialize.InitRouter()
+	zap.S().Debugf("start the server...port:%d", port)
+	if err := router.Run(fmt.Sprintf(":%d", port)); err != nil {
+		zap.S().Panicf("starting failed...port:%d, error:%s", port, err.Error())
+
+	}
+}
