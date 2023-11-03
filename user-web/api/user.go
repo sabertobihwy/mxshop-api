@@ -11,6 +11,8 @@ import (
 	"mxshop-api/user-web/proto"
 	"net/http"
 	"time"
+
+	"mxshop-api/user-web/global"
 )
 
 func GrpcCodeToHttp(err error, ctx *gin.Context) {
@@ -44,8 +46,8 @@ func GrpcCodeToHttp(err error, ctx *gin.Context) {
 
 func GetUserList(c *gin.Context) {
 	zap.S().Debugf("get the user list...")
-	PORT := 50051
-	IP := "127.0.0.1"
+	PORT := global.SrvConfig.UserConfig.Port
+	IP := global.SrvConfig.Ip
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", IP, PORT), grpc.WithInsecure())
 	defer conn.Close()
 	if err != nil {
