@@ -3,13 +3,17 @@ package api
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"mxshop-api/user-web/forms"
 	"mxshop-api/user-web/global/response"
 	"mxshop-api/user-web/proto"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"mxshop-api/user-web/global"
@@ -54,7 +58,11 @@ func GetUserList(c *gin.Context) {
 		zap.S().Errorw("connect to port error...", "msg", err.Error())
 	}
 	client := proto.NewUserClient(conn)
-	lst, err := client.GetUserList(c, &proto.PageInfo{Pn: 0, PSize: 3})
+	pn := c.DefaultQuery("pn", "0")
+	pSize := c.DefaultQuery("psize", "5")
+	pni, _ := strconv.Atoi(pn)
+	pns, _ := strconv.Atoi(pSize)
+	lst, err := client.GetUserList(c, &proto.PageInfo{Pn: uint32(pni), PSize: uint32(pns)})
 	if err != nil {
 		zap.S().Errorw("invoking [GetUserList] error")
 		GrpcCodeToHttp(err, c)
@@ -76,5 +84,35 @@ func GetUserList(c *gin.Context) {
 		result = append(result, usr)
 	}
 	c.JSON(http.StatusOK, result)
+
+}
+func improveStruct(m map[string]string) map[string]string {
+	rsp := map[string]string{}
+	for key, value := range m {
+		rsp[key[strings.Index(key, ".")+1:]] = value
+	}
+	return rsp
+}
+func validateReturn(err error, c *gin.Context) {
+	errs, ok := err.(validator.ValidationErrors)
+	if !ok {
+		// 非validator.ValidationErrors类型错误直接返回
+		c.JSON(http.StatusOK, gin.H{
+			"msg": err.Error(),
+		})
+		return
+	}
+	// validator.ValidationErrors类型错误则进行翻译
+	c.JSON(http.StatusBadRequest, gin.H{
+		"msg": improveStruct(errs.Translate(global.Trans)), // map[string]string
+	})
+	return
+}
+
+func LoginValidate(c *gin.Context) {
+	var login = forms.Login{}
+	if err := c.ShouldBind(&login); err != nil {
+		validateReturn(err, c)
+	}
 
 }

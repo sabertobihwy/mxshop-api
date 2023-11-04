@@ -11,5 +11,6 @@ func UserRouter(group *gin.RouterGroup) {
 	group = group.Group("/user")
 	{
 		group.GET("/list", api.GetUserList)
+		group.POST("/login", api.LoginValidate)
 	}
 }
