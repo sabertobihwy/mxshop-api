@@ -110,9 +110,58 @@ func validateReturn(err error, c *gin.Context) {
 }
 
 func LoginValidate(c *gin.Context) {
+	// 1, validate the form
 	var login = forms.Login{}
 	if err := c.ShouldBind(&login); err != nil {
 		validateReturn(err, c)
+		return
 	}
+	// 2, interaction with db
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", global.SrvConfig.Ip, global.SrvConfig.UserConfig.Port), grpc.WithInsecure())
+	defer conn.Close()
+	if err != nil {
+		zap.S().Errorw("connect to port error...", "msg", err.Error())
+	}
+	client := proto.NewUserClient(conn)
+	// 2,1 check mobile
+	rsp, err := client.GetUserByMobile(c, &proto.MobileRequest{
+		Mobile: login.Mobile,
+	})
+	if err != nil {
+		if e, ok := status.FromError(err); ok {
+			switch e.Code() {
+			case codes.NotFound:
+				c.JSON(http.StatusBadRequest, gin.H{
+					"msg": "user not found",
+				})
+			default:
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"msg": "login error",
+				})
+			}
+			return
+		}
+	} else {
+		// 2,2 get the pwd
+		// check the pwd
+		if rsp, err := client.CheckPwd(c, &proto.PwdCheckInfo{
+			PassWord:     login.Password,
+			EncryptedPws: rsp.PassWord,
+		}); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"msg": "login  error",
+			})
+		} else {
+			if rsp.Success {
+				c.JSON(http.StatusOK, gin.H{
+					"msg": "login success",
+				})
+			} else {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"msg": "password wrong",
+				})
+			}
+		}
 
+	}
 }
