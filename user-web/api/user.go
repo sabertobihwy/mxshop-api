@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
@@ -10,6 +11,8 @@ import (
 	"google.golang.org/grpc/status"
 	"mxshop-api/user-web/forms"
 	"mxshop-api/user-web/global/response"
+	"mxshop-api/user-web/middlewares"
+	"mxshop-api/user-web/models"
 	"mxshop-api/user-web/proto"
 	"net/http"
 	"strconv"
@@ -57,6 +60,11 @@ func GetUserList(c *gin.Context) {
 	if err != nil {
 		zap.S().Errorw("connect to port error...", "msg", err.Error())
 	}
+	// get user_id from token
+	claim, _ := c.Get("claims")
+	customClaim, _ := claim.(*models.CustomClaims)
+	zap.S().Debugf("user_id is %+v", customClaim.ID)
+
 	client := proto.NewUserClient(conn)
 	pn := c.DefaultQuery("pn", "0")
 	pSize := c.DefaultQuery("psize", "5")
@@ -124,7 +132,7 @@ func LoginValidate(c *gin.Context) {
 	}
 	client := proto.NewUserClient(conn)
 	// 2,1 check mobile
-	rsp, err := client.GetUserByMobile(c, &proto.MobileRequest{
+	userInfo, err := client.GetUserByMobile(c, &proto.MobileRequest{
 		Mobile: login.Mobile,
 	})
 	if err != nil {
@@ -146,15 +154,38 @@ func LoginValidate(c *gin.Context) {
 		// check the pwd
 		if rsp, err := client.CheckPwd(c, &proto.PwdCheckInfo{
 			PassWord:     login.Password,
-			EncryptedPws: rsp.PassWord,
+			EncryptedPws: userInfo.PassWord,
 		}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"msg": "login  error",
 			})
 		} else {
 			if rsp.Success {
+				// 3. create jwt
+				j := middlewares.NewJWT()
+				claim := models.CustomClaims{
+					ID:          uint(userInfo.Id),
+					NickName:    userInfo.NickName,
+					AuthorityId: uint(userInfo.Role),
+					StandardClaims: jwt.StandardClaims{
+						NotBefore: time.Now().Unix(),               // start from now
+						ExpiresAt: time.Now().Unix() + 60*60*24*30, // 30 days
+						Issuer:    "bobby",
+					},
+				}
+				token, err := j.CreateToken(claim)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"msg": "create token error",
+					})
+					return
+				}
 				c.JSON(http.StatusOK, gin.H{
-					"msg": "login success",
+					"msg":          "login success",
+					"token":        token,
+					"id":           userInfo.Id,
+					"nickname":     userInfo.NickName,
+					"token_expire": (time.Now().Unix() + 60*60*24*30) * 1000,
 				})
 			} else {
 				c.JSON(http.StatusBadRequest, gin.H{
