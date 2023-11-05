@@ -124,6 +124,13 @@ func LoginValidate(c *gin.Context) {
 		validateReturn(err, c)
 		return
 	}
+	// 1,1 verify the captcha
+	if !store.Verify(login.CaptchaId, login.Captcha, true) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": "captcha not verified",
+		})
+		return
+	}
 	// 2, interaction with db
 	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", global.SrvConfig.Ip, global.SrvConfig.UserConfig.Port), grpc.WithInsecure())
 	defer conn.Close()

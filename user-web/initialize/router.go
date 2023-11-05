@@ -13,5 +13,6 @@ func InitRouter() *gin.Engine {
 	router.Use(middlewares.Cors())
 	group := router.Group("/u/v1")
 	router2.UserRouter(group)
+	router2.InitBaseRouter(group)
 	return router
 }
