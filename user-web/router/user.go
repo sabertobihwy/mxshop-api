@@ -11,7 +11,7 @@ func UserRouter(group *gin.RouterGroup) {
 	zap.S().Infof("init the UserRouter...")
 	group = group.Group("/user")
 	{
-		group.GET("/list", middlewares.JWTAuth(), api.GetUserList)
+		group.GET("/list", middlewares.JWTAuth(), middlewares.IsAdmin(), api.GetUserList)
 		group.POST("/login", api.LoginValidate)
 	}
 }
