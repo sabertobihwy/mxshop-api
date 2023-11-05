@@ -5,6 +5,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -202,4 +203,83 @@ func LoginValidate(c *gin.Context) {
 		}
 
 	}
+}
+
+func Register(c *gin.Context) {
+	// 1, validate the form
+	var registerForm = forms.RegisterForm{}
+	if err := c.ShouldBind(&registerForm); err != nil {
+		validateReturn(err, c)
+		return
+	}
+	// 2. verify the smscode
+	rdb := redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%d", global.SrvConfig.RedisConfig.Host, global.SrvConfig.RedisConfig.Port),
+	})
+	value, err := rdb.Get(c, registerForm.Mobile).Result()
+	if err == redis.Nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"code": "sms code error",
+		})
+		return
+	} else {
+		if value != registerForm.SmsCode {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"code": "sms code error",
+			})
+			return
+		}
+	}
+	// 3. already exists
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", global.SrvConfig.Ip, global.SrvConfig.UserConfig.Port), grpc.WithInsecure())
+	defer conn.Close()
+	if err != nil {
+		zap.S().Errorw("connect to port error...", "msg", err.Error())
+	}
+	client := proto.NewUserClient(conn)
+	if _, err := client.GetUserByMobile(c, &proto.MobileRequest{
+		Mobile: registerForm.Mobile,
+	}); err == nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"msg": "user already exists",
+		})
+		return
+	}
+	// 4. create new user
+	userInfo, err := client.CreateUser(c, &proto.CreateUserInfo{
+		NickName: registerForm.NickName,
+		PassWord: registerForm.Password,
+		Mobile:   registerForm.Mobile,
+	})
+	if err != nil {
+		zap.S().Errorw("invoking [CreateNewUser] error")
+		GrpcCodeToHttp(err, c)
+		return
+	}
+	// 5. add token
+	j := middlewares.NewJWT()
+	claim := models.CustomClaims{
+		ID:          uint(userInfo.Id),
+		NickName:    userInfo.NickName,
+		AuthorityId: uint(userInfo.Role),
+		StandardClaims: jwt.StandardClaims{
+			NotBefore: time.Now().Unix(),               // start from now
+			ExpiresAt: time.Now().Unix() + 60*60*24*30, // 30 days
+			Issuer:    "bobby",
+		},
+	}
+	token, err := j.CreateToken(claim)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"msg": "create token error",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"msg":          "register success",
+		"token":        token,
+		"id":           userInfo.Id,
+		"nickname":     userInfo.NickName,
+		"token_expire": (time.Now().Unix() + 60*60*24*30) * 1000,
+	})
 }

@@ -13,5 +13,6 @@ func UserRouter(group *gin.RouterGroup) {
 	{
 		group.GET("/list", middlewares.JWTAuth(), middlewares.IsAdmin(), api.GetUserList)
 		group.POST("/login", api.LoginValidate)
+		group.POST("/register", api.Register)
 	}
 }
