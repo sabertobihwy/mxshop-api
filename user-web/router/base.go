@@ -12,5 +12,6 @@ func BaseRouter(group *gin.RouterGroup) {
 	{
 		group.GET("/captcha", api.GetCaptcha)
 		group.POST("/send_sms", api.SendSMS)
+		group.GET("/health", api.HealthCheck)
 	}
 }

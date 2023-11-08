@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"mxshop-api/user-web/global"
 	"mxshop-api/user-web/models"
 	"net/http"
@@ -39,6 +40,7 @@ func JWTAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		zap.S().Infof("claims is %+v", claims)
 		c.Set("claims", claims)
 		c.Set("userId", claims.ID)
 		c.Next()

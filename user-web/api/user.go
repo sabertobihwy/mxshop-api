@@ -15,6 +15,7 @@ import (
 	"mxshop-api/user-web/middlewares"
 	"mxshop-api/user-web/models"
 	"mxshop-api/user-web/proto"
+	"mxshop-api/user-web/utils"
 	"net/http"
 	"strconv"
 	"strings"
@@ -54,9 +55,9 @@ func GrpcCodeToHttp(err error, ctx *gin.Context) {
 
 func GetUserList(c *gin.Context) {
 	zap.S().Debugf("get the user list...")
-	PORT := global.SrvConfig.UserConfig.Port
-	IP := global.SrvConfig.Ip
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", IP, PORT), grpc.WithInsecure())
+	SRV_HOST, SRV_PORT := utils.GetService(global.SrvConfig.ConsulConfig.Host,
+		global.SrvConfig.ConsulConfig.Port, "mxshop_srvs")
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", SRV_HOST, SRV_PORT), grpc.WithInsecure())
 	defer conn.Close()
 	if err != nil {
 		zap.S().Errorw("connect to port error...", "msg", err.Error())
@@ -119,6 +120,9 @@ func validateReturn(err error, c *gin.Context) {
 }
 
 func LoginValidate(c *gin.Context) {
+	SRV_HOST, SRV_PORT := utils.GetService(global.SrvConfig.ConsulConfig.Host,
+		global.SrvConfig.ConsulConfig.Port, "mxshop_srvs")
+	zap.S().Infof("SRV_HOST: %s SRV_PORT: %d", SRV_HOST, SRV_PORT)
 	// 1, validate the form
 	var login = forms.Login{}
 	if err := c.ShouldBind(&login); err != nil {
@@ -133,7 +137,7 @@ func LoginValidate(c *gin.Context) {
 		return
 	}
 	// 2, interaction with db
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", global.SrvConfig.Ip, global.SrvConfig.UserConfig.Port), grpc.WithInsecure())
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", SRV_HOST, SRV_PORT), grpc.WithInsecure())
 	defer conn.Close()
 	if err != nil {
 		zap.S().Errorw("connect to port error...", "msg", err.Error())
@@ -144,6 +148,7 @@ func LoginValidate(c *gin.Context) {
 		Mobile: login.Mobile,
 	})
 	if err != nil {
+		zap.S().Debugf("[error] GetUserByMobile, %s", err.Error())
 		if e, ok := status.FromError(err); ok {
 			switch e.Code() {
 			case codes.NotFound:
@@ -181,6 +186,7 @@ func LoginValidate(c *gin.Context) {
 						Issuer:    "bobby",
 					},
 				}
+				zap.S().Infof("login a user, roleId is :%d", claim.AuthorityId)
 				token, err := j.CreateToken(claim)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{
@@ -206,7 +212,8 @@ func LoginValidate(c *gin.Context) {
 }
 
 func Register(c *gin.Context) {
-	// 1, validate the form
+	SRV_HOST, SRV_PORT := utils.GetService(global.SrvConfig.ConsulConfig.Host,
+		global.SrvConfig.ConsulConfig.Port, "mxshop_srvs") // 1, validate the form
 	var registerForm = forms.RegisterForm{}
 	if err := c.ShouldBind(&registerForm); err != nil {
 		validateReturn(err, c)
@@ -231,7 +238,7 @@ func Register(c *gin.Context) {
 		}
 	}
 	// 3. already exists
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", global.SrvConfig.Ip, global.SrvConfig.UserConfig.Port), grpc.WithInsecure())
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", SRV_HOST, SRV_PORT), grpc.WithInsecure())
 	defer conn.Close()
 	if err != nil {
 		zap.S().Errorw("connect to port error...", "msg", err.Error())
