@@ -30,6 +30,9 @@ func main() {
 			return t
 		})
 	}
+	// 3. init client
+	initialize.InitUsrSrv()
+	defer global.Conn.Close()
 	// 3. init router
 	router := initialize.InitRouter()
 	zap.S().Debugf("start the server...port:%d", port)

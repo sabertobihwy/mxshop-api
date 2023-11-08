@@ -7,7 +7,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"mxshop-api/user-web/forms"
@@ -15,7 +14,6 @@ import (
 	"mxshop-api/user-web/middlewares"
 	"mxshop-api/user-web/models"
 	"mxshop-api/user-web/proto"
-	"mxshop-api/user-web/utils"
 	"net/http"
 	"strconv"
 	"strings"
@@ -54,25 +52,16 @@ func GrpcCodeToHttp(err error, ctx *gin.Context) {
 }
 
 func GetUserList(c *gin.Context) {
-	zap.S().Debugf("get the user list...")
-	SRV_HOST, SRV_PORT := utils.GetService(global.SrvConfig.ConsulConfig.Host,
-		global.SrvConfig.ConsulConfig.Port, "mxshop_srvs")
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", SRV_HOST, SRV_PORT), grpc.WithInsecure())
-	defer conn.Close()
-	if err != nil {
-		zap.S().Errorw("connect to port error...", "msg", err.Error())
-	}
 	// get user_id from token
 	claim, _ := c.Get("claims")
 	customClaim, _ := claim.(*models.CustomClaims)
 	zap.S().Debugf("user_id is %+v", customClaim.ID)
 
-	client := proto.NewUserClient(conn)
 	pn := c.DefaultQuery("pn", "0")
 	pSize := c.DefaultQuery("psize", "5")
 	pni, _ := strconv.Atoi(pn)
 	pns, _ := strconv.Atoi(pSize)
-	lst, err := client.GetUserList(c, &proto.PageInfo{Pn: uint32(pni), PSize: uint32(pns)})
+	lst, err := global.UserClient.GetUserList(c, &proto.PageInfo{Pn: uint32(pni), PSize: uint32(pns)})
 	if err != nil {
 		zap.S().Errorw("invoking [GetUserList] error")
 		GrpcCodeToHttp(err, c)
@@ -120,9 +109,6 @@ func validateReturn(err error, c *gin.Context) {
 }
 
 func LoginValidate(c *gin.Context) {
-	SRV_HOST, SRV_PORT := utils.GetService(global.SrvConfig.ConsulConfig.Host,
-		global.SrvConfig.ConsulConfig.Port, "mxshop_srvs")
-	zap.S().Infof("SRV_HOST: %s SRV_PORT: %d", SRV_HOST, SRV_PORT)
 	// 1, validate the form
 	var login = forms.Login{}
 	if err := c.ShouldBind(&login); err != nil {
@@ -137,14 +123,8 @@ func LoginValidate(c *gin.Context) {
 		return
 	}
 	// 2, interaction with db
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", SRV_HOST, SRV_PORT), grpc.WithInsecure())
-	defer conn.Close()
-	if err != nil {
-		zap.S().Errorw("connect to port error...", "msg", err.Error())
-	}
-	client := proto.NewUserClient(conn)
 	// 2,1 check mobile
-	userInfo, err := client.GetUserByMobile(c, &proto.MobileRequest{
+	userInfo, err := global.UserClient.GetUserByMobile(c, &proto.MobileRequest{
 		Mobile: login.Mobile,
 	})
 	if err != nil {
@@ -165,7 +145,7 @@ func LoginValidate(c *gin.Context) {
 	} else {
 		// 2,2 get the pwd
 		// check the pwd
-		if rsp, err := client.CheckPwd(c, &proto.PwdCheckInfo{
+		if rsp, err := global.UserClient.CheckPwd(c, &proto.PwdCheckInfo{
 			PassWord:     login.Password,
 			EncryptedPws: userInfo.PassWord,
 		}); err != nil {
@@ -212,8 +192,6 @@ func LoginValidate(c *gin.Context) {
 }
 
 func Register(c *gin.Context) {
-	SRV_HOST, SRV_PORT := utils.GetService(global.SrvConfig.ConsulConfig.Host,
-		global.SrvConfig.ConsulConfig.Port, "mxshop_srvs") // 1, validate the form
 	var registerForm = forms.RegisterForm{}
 	if err := c.ShouldBind(&registerForm); err != nil {
 		validateReturn(err, c)
@@ -238,13 +216,8 @@ func Register(c *gin.Context) {
 		}
 	}
 	// 3. already exists
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", SRV_HOST, SRV_PORT), grpc.WithInsecure())
-	defer conn.Close()
-	if err != nil {
-		zap.S().Errorw("connect to port error...", "msg", err.Error())
-	}
-	client := proto.NewUserClient(conn)
-	if _, err := client.GetUserByMobile(c, &proto.MobileRequest{
+
+	if _, err := global.UserClient.GetUserByMobile(c, &proto.MobileRequest{
 		Mobile: registerForm.Mobile,
 	}); err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -253,7 +226,7 @@ func Register(c *gin.Context) {
 		return
 	}
 	// 4. create new user
-	userInfo, err := client.CreateUser(c, &proto.CreateUserInfo{
+	userInfo, err := global.UserClient.CreateUser(c, &proto.CreateUserInfo{
 		NickName: registerForm.NickName,
 		PassWord: registerForm.Password,
 		Mobile:   registerForm.Mobile,
