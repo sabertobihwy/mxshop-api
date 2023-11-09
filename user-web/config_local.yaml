@@ -1,6 +1,6 @@
 name: 'user-web'
 port: 8021
-ip: '127.0.0.1'
+ip: '192.168.2.178'
 consul:
   host: '192.168.2.112'
   port: 8500
@@ -9,3 +9,5 @@ jwt:
 redis:
   host: '192.168.2.112'
   port: 6379
+user_srv:
+  name: 'mxshop_srvs'

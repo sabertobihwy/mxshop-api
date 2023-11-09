@@ -5,6 +5,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"mxshop-api/user-web/utils"
 
 	"mxshop-api/user-web/global"
 )
@@ -32,6 +33,10 @@ func InitConfig() {
 		panic(err)
 	}
 	zap.S().Infof("SrvConfig : %v", *global.SrvConfig)
+
+	if !flg { // local: fixed port; remote: dynamic port
+		global.SrvConfig.Port, _ = utils.GetFreePort()
+	}
 
 	v.WatchConfig()
 	v.OnConfigChange(func(e fsnotify.Event) {

@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"fmt"
@@ -18,9 +18,4 @@ func GetFreePort() (int, error) {
 	fmt.Printf("%+v\n", *l)
 	defer l.Close()
 	return l.Addr().(*net.TCPAddr).Port, nil
-}
-
-func main() {
-	l, _ := GetFreePort()
-	fmt.Println(l)
 }
