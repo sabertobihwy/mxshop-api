@@ -40,7 +40,7 @@ func manualWayGetCli() {
 	global.UserClient = proto.NewUserClient(global.Conn)
 }
 
-func LBwayGetCli() {
+func lBwayGetCli() {
 	var err error
 	global.Conn, err = grpc.Dial(fmt.Sprintf("consul://%s:8500/%s?wait=14s&tag=%s", global.SrvConfig.ConsulConfig.Host, global.SrvConfig.UserServiceConfig.Name, "mxshop"),
 		grpc.WithInsecure(),
@@ -53,6 +53,6 @@ func LBwayGetCli() {
 }
 
 func InitUsrSrv() {
-	LBwayGetCli()
+	lBwayGetCli()
 
 }
