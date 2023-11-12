@@ -2,7 +2,10 @@ package initialize
 
 import (
 	"fmt"
-	"github.com/fsnotify/fsnotify"
+	"github.com/goccy/go-json"
+	"github.com/nacos-group/nacos-sdk-go/clients"
+	"github.com/nacos-group/nacos-sdk-go/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/vo"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"mxshop-api/user-web/utils"
@@ -29,21 +32,49 @@ func InitConfig() {
 	if err := v.ReadInConfig(); err != nil {
 		panic(err)
 	}
-	if err := v.Unmarshal(global.SrvConfig); err != nil {
+	if err := v.Unmarshal(global.NacosConfig); err != nil {
 		panic(err)
 	}
-	zap.S().Infof("SrvConfig : %v", *global.SrvConfig)
+	zap.S().Infof("NacosConfig : %v", *global.NacosConfig)
+
+	//create ServerConfig
+	sc := []constant.ServerConfig{
+		*constant.NewServerConfig(global.NacosConfig.Host, uint64(global.NacosConfig.Port),
+			constant.WithContextPath("/nacos")),
+	}
+
+	//create ClientConfig
+	cc := *constant.NewClientConfig(
+		constant.WithNamespaceId(global.NacosConfig.Namespace),
+		constant.WithTimeoutMs(5000),
+		constant.WithNotLoadCacheAtStart(true),
+		constant.WithLogDir("tmp/nacos/log"),
+		constant.WithCacheDir("tmp/nacos/cache"),
+		constant.WithLogLevel("debug"),
+	)
+
+	// create config client
+	client, err := clients.NewConfigClient(
+		vo.NacosClientParam{
+			ClientConfig:  &cc,
+			ServerConfigs: sc,
+		},
+	)
+	if err != nil {
+		panic(err.Error())
+	}
+	content, err := client.GetConfig(vo.ConfigParam{
+		DataId: global.NacosConfig.Dataid,
+		Group:  global.NacosConfig.Group,
+	})
+	//	fmt.Printf("GetConfig,config : %s", content)
+	err = json.Unmarshal([]byte(content), &global.SrvConfig)
+	if err != nil {
+		panic(err.Error())
+	}
 
 	if !flg { // local: fixed port; remote: dynamic port
 		global.SrvConfig.Port, _ = utils.GetFreePort()
 	}
-
-	v.WatchConfig()
-	v.OnConfigChange(func(e fsnotify.Event) {
-		zap.S().Infof("config file changed")
-		_ = v.ReadInConfig()
-		_ = v.Unmarshal(global.SrvConfig)
-		zap.S().Infof("SrvConfig change to : %v", *global.SrvConfig)
-	})
 
 }

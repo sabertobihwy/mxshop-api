@@ -1,13 +1,7 @@
-name: 'user-web'
-port: 8021
-ip: '192.168.2.178'
-consul:
-  host: '192.168.2.112'
-  port: 8500
-jwt:
-  key: 'h0JqVUD23NI9m1Rq361ru41OvUGvNScS'
-redis:
-  host: '192.168.2.112'
-  port: 6379
-user_srv:
-  name: 'mxshop_srvs'
+host: '192.168.2.112'
+port: 8848
+namespace: '09d9e80b-6932-4a58-ad14-4fec10bcef59'
+dataid: 'usr-web.json'
+group: 'dev'
+user: 'nacos'
+password: 'nacos'

@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	SrvConfig  *config.ServiceConfig = &config.ServiceConfig{}
-	Trans      ut.Translator
-	Conn       *grpc.ClientConn
-	UserClient proto.UserClient
+	SrvConfig   *config.ServiceConfig = &config.ServiceConfig{}
+	NacosConfig *config.NacosConfig   = &config.NacosConfig{}
+	Trans       ut.Translator
+	Conn        *grpc.ClientConn
+	UserClient  proto.UserClient
 )
