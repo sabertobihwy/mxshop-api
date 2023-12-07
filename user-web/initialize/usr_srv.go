@@ -2,7 +2,9 @@ package initialize
 
 import (
 	"fmt"
+	"github.com/opentracing/opentracing-go"
 	"log"
+	"mxshop-api/user-web/initialize/otgrpc"
 
 	"github.com/hashicorp/consul/api"
 	_ "github.com/mbobakov/grpc-consul-resolver"
@@ -42,9 +44,13 @@ func manualWayGetCli() {
 
 func lBwayGetCli() {
 	var err error
+	// first initialize client -> NoopTracer -> api initilize tracer in router-interceptor ->
+	// -> in grpc-interceptor we have to give "tracer" to it
+	var testtracer = opentracing.GlobalTracer()
 	global.Conn, err = grpc.Dial(fmt.Sprintf("consul://%s:8500/%s?wait=14s&tag=%s", global.SrvConfig.ConsulConfig.Host, global.SrvConfig.UserServiceConfig.Name, "mxshop"),
 		grpc.WithInsecure(),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy": "round_robin"}`),
+		grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(testtracer)),
 	)
 	if err != nil {
 		log.Fatal(err)

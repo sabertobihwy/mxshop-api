@@ -4,14 +4,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"mxshop-api/user-web/api"
+	"mxshop-api/user-web/middlewares"
 )
 
 func BaseRouter(group *gin.RouterGroup) {
 	zap.S().Infof("init the BaseRouter...")
-	group = group.Group("/base")
+	rg := group.Group("/base").Use(middlewares.Tracing())
 	{
-		group.GET("/captcha", api.GetCaptcha)
-		group.POST("/send_sms", api.SendSMS)
-		group.GET("/health", api.HealthCheck)
+		rg.GET("/captcha", api.GetCaptcha)
+		rg.POST("/send_sms", api.SendSMS)
+		rg.GET("/health", api.HealthCheck)
 	}
 }

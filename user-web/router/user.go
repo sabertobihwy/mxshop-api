@@ -9,10 +9,10 @@ import (
 
 func UserRouter(group *gin.RouterGroup) {
 	zap.S().Infof("init the UserRouter...")
-	group = group.Group("/user")
+	rg := group.Group("/user").Use(middlewares.Tracing())
 	{
-		group.GET("/list", middlewares.JWTAuth(), middlewares.IsAdmin(), api.GetUserList)
-		group.POST("/login", api.LoginValidate)
-		group.POST("/register", api.Register)
+		rg.GET("/list", middlewares.JWTAuth(), middlewares.IsAdmin(), api.GetUserList)
+		rg.POST("/login", api.LoginValidate)
+		rg.POST("/register", api.Register)
 	}
 }

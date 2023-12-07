@@ -7,6 +7,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"mxshop-api/user-web/forms"
@@ -56,12 +57,17 @@ func GetUserList(c *gin.Context) {
 	claim, _ := c.Get("claims")
 	customClaim, _ := claim.(*models.CustomClaims)
 	zap.S().Debugf("user_id is %+v", customClaim.ID)
-
 	pn := c.DefaultQuery("pn", "0")
 	pSize := c.DefaultQuery("psize", "5")
 	pni, _ := strconv.Atoi(pn)
 	pns, _ := strconv.Atoi(pSize)
-	lst, err := global.UserClient.GetUserList(c, &proto.PageInfo{Pn: uint32(pni), PSize: uint32(pns)})
+
+	//parentspan, _ := c.Get("parentSpan")
+	// newcontext's parent_span
+	//opentracing.ContextWithSpan(context.Background(), parentspan.(opentracing.Span))
+	// newcontext with parent_context
+	newctx := context.WithValue(context.Background(), "ginContext", c)
+	lst, err := global.UserClient.GetUserList(newctx, &proto.PageInfo{Pn: uint32(pni), PSize: uint32(pns)})
 	if err != nil {
 		zap.S().Errorw("invoking [GetUserList] error")
 		GrpcCodeToHttp(err, c)
