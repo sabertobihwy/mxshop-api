@@ -2,6 +2,8 @@ package api
 
 import (
 	"fmt"
+	sentinel "github.com/alibaba/sentinel-golang/api"
+	"github.com/alibaba/sentinel-golang/core/base"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -62,17 +64,24 @@ func GetUserList(c *gin.Context) {
 	pni, _ := strconv.Atoi(pn)
 	pns, _ := strconv.Atoi(pSize)
 
-	//parentspan, _ := c.Get("parentSpan")
-	// newcontext's parent_span
-	//opentracing.ContextWithSpan(context.Background(), parentspan.(opentracing.Span))
-	// newcontext with parent_context
+	// for tracing
 	newctx := context.WithValue(context.Background(), "ginContext", c)
+	// for rate limiting
+	e, b := sentinel.Entry("api-test", sentinel.WithTrafficType(base.Inbound))
+	if b != nil {
+		fmt.Println("refuse")
+		c.JSON(http.StatusTooManyRequests, gin.H{
+			"msg": "too frequent requests!!!", // map[string]string
+		})
+		return
+	}
 	lst, err := global.UserClient.GetUserList(newctx, &proto.PageInfo{Pn: uint32(pni), PSize: uint32(pns)})
 	if err != nil {
 		zap.S().Errorw("invoking [GetUserList] error")
 		GrpcCodeToHttp(err, c)
 		return
 	}
+	e.Exit()
 	result := make([]interface{}, 0)
 	for _, value := range lst.Data {
 		//data := make(map[string]interface{})

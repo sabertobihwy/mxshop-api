@@ -33,8 +33,10 @@ func main() {
 	// 3. init client
 	initialize.InitUsrSrv()
 	defer global.Conn.Close()
-	// 3. init router
+	// 4. init router
 	router := initialize.InitRouter()
+	// 5. init sentinel
+	initialize.InitializeSentinel()
 	zap.S().Debugf("start the server...port:%d", port)
 	if err := router.Run(fmt.Sprintf(":%d", port)); err != nil {
 		zap.S().Panicf("starting failed...port:%d, error:%s", port, err.Error())
