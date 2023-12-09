@@ -11,7 +11,7 @@ func InitRouter() *gin.Engine {
 	zap.S().Infof("init the router...")
 	router := gin.Default()
 	router.Use(middlewares.Cors())
-	group := router.Group("/u/v1")
+	group := router.Group("/v1")
 	router2.UserRouter(group)
 	router2.BaseRouter(group)
 	return router
